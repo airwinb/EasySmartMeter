@@ -26,16 +26,8 @@
 				<td><div id="divLastUpdate">-</div></td>
 			</tr>
 			<tr>
-				<td>Elektra</td>
-				<td><div id="divElektra">-</div></td>
-			</tr>
-			<tr>
-				<td>Elektra (dal)</td>
-				<td><div id="divElektraDal">-</div></td>
-			</tr>
-			<tr>
-				<td>Elektra (piek)</td>
-				<td><div id="divElektraPiek">-</div></td>
+				<td>Elektra dag totaal</td>
+				<td><div id="divElektraDagTotaal">-</div></td>
 			</tr>
 			<tr>
 				<td>Elektra dag minimum</td>
@@ -46,7 +38,7 @@
 				<td><div id="divElektraDagMax">-</div></td>
 			</tr>
 		</table>
-		
+
 
 		<div style="text-align: center">
 			<canvas id="cvs1" width="300" height="300">[No canvas support]</canvas><br /><br />
@@ -90,9 +82,7 @@
         	function draw (jsonData)
         	{
         		document.getElementById("divLastUpdate").innerHTML = jsonData.timestamp;
-        		document.getElementById("divElektra").innerHTML = jsonData.eTotal;
-        		document.getElementById("divElektraDal").innerHTML = jsonData.eTotalOffPeak;
-        		document.getElementById("divElektraPiek").innerHTML = jsonData.eTotalPeak;
+        		document.getElementById("divElektraDagTotaal").innerHTML = jsonData.eTotal - jsonData.eHourlyTotalList[0];
         		document.getElementById("divElektraDagMin").innerHTML = jsonData.eDayMin;
         		document.getElementById("divElektraDagMax").innerHTML = jsonData.eDayMax;
         		

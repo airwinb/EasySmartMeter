@@ -1,0 +1,116 @@
+===============================================================================
+
+Installatie instructies
+
+Datum: 2013-06-23
+
+===============================================================================
+Vereisten:
+- Raspberry Pi
+- Raspbian "wheezy": e.g. 2013-05-25-wheezy-raspbian.zip
+
+Kennis:
+- Weten hoe je via SSH met je Rapi connect
+- Algemene kennis van Linux
+
+
+
+Stap 1: Creeer eigen login
+-------------------------------------------------------------------------------
+Het is niet goed om alles als root of user pi te doen. Vandaar deze stap.
+
+User toevoegen:
+> sudo useradd -c "Pietje Puk" -d /home/piet -m -s /bin/bash piet
+
+Wachtwoordje zetten:
+> sudo passwd piet
+Enter new UNIX password:
+Retype new UNIX password:
+passwd: password updated successfully
+
+Rechten zetten zodat je op seriele poort mag: 
+> sudo usermod -a -G dialout piet
+
+Jezelf toevoegen aan sudo rechten:
+>vi /etc/sudoers
+
+#includedir /etc/sudoers.d
+pi ALL=(ALL) NOPASSWD: ALL
+piet ALL=(ALL) NOPASSWD: ALL
+
+
+Stap 2: Software installeren
+-------------------------------------------------------------------------------
+NGINX installeren:
+> sudo apt-get install nginx
+
+Configureer NGINX (zeer specifiek voor je eigen omgeving)
+> sudo vi nginx.conf
+
+Opstarten:
+> sudo service nginx start
+
+Herladen nadat je iets aan de configuratie hebt verandert:
+> sudo service nginx reload
+
+
+
+
+PHP installeren:
+> sudo apt-get install php5-cgi php5-mysql php5-fpm php5-cli
+
+
+
+Python module 'pyserial' installeren:
+> sudo apt-get install python-serial
+
+
+
+
+
+
+
+
+
+
+Appendix: (Moet nog deels verwerkt worden, en niet alles is nodig/goed!)
+
+
+   12  sudo apt-get install cu minicom
+
+   26  
+
+   40  sudo apt-get install php5
+
+  103  sudo apt-get install netatalk
+
+  129  sudo apt-get update
+
+  133  sudo dpkg-reconfigure tzdata
+
+  180  sudo raspi-config
+
+  198  sudo apt-get autoremove
+  
+
+
+  
+  227  sudo cp ~/p1_file.php /usr/share/nginx/www/
+
+  238  sudo apt-get install afpfs-ng
+  247  sudo apt-get install htop
+  248  htop
+  249  cd /usr/share/nginx/www
+  250  ls -al
+  251  sudo mv p1_file.php p1.php
+  252  sudo cp p1.php p1_raw.php
+  253  sudo vi p1_raw.php
+  260  python p1_service.py 
+ 
+  284  cd /mnt
+  286  mkdir p1tmpfs
+  287  sudo mkdir p1tmpfs
+  288  sudo chmod 777 /mnt/p1tmpfs
+  291  sudo mount -t tmpfs -o size=10M tmpfs /mnt/p1tmpfs
+  
+
