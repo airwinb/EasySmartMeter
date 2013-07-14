@@ -11,8 +11,13 @@ import sys
 
 
 # Constants
-script_version = "1.2.0"
-script_date = "2013-06-30"
+script_version = "1.3.0"
+script_date = "2013-07-14"
+
+DATA_NOW_FILENAME = '/mnt/p1tmpfs/data/data_0_0.json'
+LOG_FILENAME = '/mnt/p1tmpfs/log/p1.log'
+
+
 
 keepRunning = True
 data = {}
@@ -46,19 +51,19 @@ def main():
 
 	# set up logging
 	logger = logging.getLogger('p1service')
-	hdlr = logging.FileHandler('/mnt/p1tmpfs/log/p1.log')
+	hdlr = logging.FileHandler(LOG_FILENAME)
 	formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 	hdlr.setFormatter(formatter)
 	logger.addHandler(hdlr) 
-	#logger.setLevel(logging.INFO)
-	logger.setLevel(logging.DEBUG)
+	logger.setLevel(logging.INFO)
+	#logger.setLevel(logging.DEBUG)
 
 	logger.info("P1 reader, v%s, %s" % (script_version, script_date))
 	
 	# Try to read from file
 	try:
 		logger.info('Trying to read from file')
-		with open('/mnt/p1tmpfs/data/data_0.json', 'r') as fDataIn:
+		with open(DATA_NOW_FILENAME, 'r') as fDataIn:
 			data = json.load(fDataIn)
 			logger.info('Using data from file dated %s' % data['timestamp'])
 	except IOError:
@@ -75,8 +80,8 @@ def main():
 		data['eHourlyMinList'] = [None] * 24
 		data['eHourlyMaxList'] = [None] * 24
 		data['eHourlyTotalList'] = [None] * 25
-		#data['gasHourlyTotalist'] = [None] * 25
 		data['eLastHourList'] = [None] * 360
+		# Note: gas will be created if needed
 
 		datetimeNow = datetime.datetime.now()
 		currentDay = datetimeNow.isoweekday()
@@ -85,7 +90,7 @@ def main():
 		data['eHourlyMaxList'][currentHour] = 0
 	else:
 		datetimeFromFile = datetime.datetime.strptime(data['timestamp'], '%Y-%m-%d %H:%M:%S')
-		currentDay = datetimeFromFile.day
+		currentDay = datetimeFromFile.isoweekday()
 		currentHour = datetimeFromFile.hour
 		if 'eHourlyTotalList' in data:
 			logger.debug('eHourlyTotalList already exists')
@@ -103,8 +108,10 @@ def main():
 
 	# do first loop to make sure we are aligned
 	logger.info('Reading COM port to align data (should take less then 10 seconds) ...')
+	firstLine = True
 	aLine = ''
-	while (aLine != "!"):
+	gasPresent = None
+	while (aLine != "!" and keepRunning):
 		try:
 			lineRaw = ser.readline()
 		except:
@@ -112,14 +119,50 @@ def main():
 				logger.error("Unable to read from COM port %s. Program aborted." % ser.name)
 			else:
 				logger.info('Reading from COM port has been cancelled')
-		aLine=str(lineRaw).strip()
-		logger.info('Output from COM port: %s' % aLine)
-	logger.info('Data alignment done')
+		
+		if keepRunning:
+			aLine=str(lineRaw).strip()
+			logger.info('Output from COM port: %s' % aLine)
+			if firstLine:
+				if (aLine[0] == '/' and aLine[4] == '5'):
+					logger.info('Data alignment done')
+					logger.info('Checking for gas ...')
+					gasPresent = False
+				firstLine = False
+			else:
+				if (aLine[0:10] == "0-1:24.3.0"):
+					gasPresent = True
+
+	if (gasPresent == None and keepRunning):
+		# do an additional loop to check for gas
+		logger.info('Checking for gas (should take about 10 seconds) ...')
+		gasPresent = False
+		while (aLine != "!"):
+			try:
+				lineRaw = ser.readline()
+			except:
+				if keepRunning:
+					logger.error("Unable to read from COM port %s. Program aborted." % ser.name)
+				else:
+					logger.info('Reading from COM port has been cancelled')
+			aLine=str(lineRaw).strip()
+			logger.info('Output from COM port: %s' % aLine)
+			if (aLine[0:10] == "0-1:24.3.0"):
+				gasPresent = True
+		
+	if (gasPresent == True):
+		logger.info('Gas is present')
+		if not 'gasHourlyTotalList' in data:
+			data['gasHourlyTotalList'] = [None] * 25
+	else:
+		logger.info('Gas is not present')
+			
 
 	while keepRunning:
 		i=0
 		linesFromP1=[]
 		aLine=''
+		gasTotal = 0
 	
 		# now read all data from one session
 		if keepRunning:
@@ -150,54 +193,65 @@ def main():
 				
 			# calculate derived values
 			eTotal = eTotalOffPeak + eTotalPeak
-			data['timestamp'] = datetimeNow.strftime("%Y-%m-%d %H:%M:%S")
 			data['eNow'] = eNow
 			data['eTotal'] = eTotal
 			data['eTotalOffPeak'] = eTotalOffPeak
 			data['eTotalPeak'] = eTotalPeak
-			if (gasTotal != 0):
+			if (gasPresent):
 				data['gasTotal'] = gasTotal
 			data['eLastHourList'].pop(0)
 			data['eLastHourList'].append(eNow)
 			
-			# check day change
-			if (datetimeNow.isoweekday() != currentDay):
-				# set the 25th entry in the eHourlyTotalList
-				data['eHourlyTotalList'][24] = eTotal
-				# write the structure to disk
-				dayFileName = '/mnt/p1tmpfs/data/data_' + str(currentDay) + '.json'
-				logger.info('Writing daily results to %s' % dayFileName)
-				with open(dayFileName, 'w') as fDataDay:
-					p1DataJsonText = json.dumps(data)
-					fDataDay.write(p1DataJsonText)
-
-				data['eHourlyMinList'] = [None] * 24
-				data['eHourlyMaxList'] = [None] * 24
-				data['eHourlyTotalList'] = [None] * 25
-				data['eDayMin'] = sys.maxint
-				data['eDayMax'] = 0
-				currentDay = datetimeNow.isoweekday()
-			
 			# check hour change	
 			if (datetimeNow.hour == currentHour):
-				data['eHourlyMinList'][currentHour] = min(data['eHourlyMinList'][currentHour], eNow)
+				if (data['eHourlyMinList'][currentHour] is None):
+					data['eHourlyMinList'][currentHour] = eNow
+				else:
+					data['eHourlyMinList'][currentHour] = min(data['eHourlyMinList'][currentHour], eNow)
 				data['eHourlyMaxList'][currentHour] = max(data['eHourlyMaxList'][currentHour], eNow)
 			else:
+				if (datetimeNow.isoweekday() != currentDay):
+					# set the 25th entry in the eHourlyTotalList
+					data['eHourlyTotalList'][24] = eTotal
+					if (gasPresent):
+						data['gasHourlyTotalList'][24] = gasTotal
+				
+				# write the structure to disk
+				hourFileName = '/mnt/p1tmpfs/data/data_' + str(currentDay) + '_' + str(currentHour + 1) + '.json'
+				logger.info('Writing hourly results to %s' % hourFileName)
+				with open(hourFileName, 'w') as fDataHour:
+					p1DataJsonText = json.dumps(data)
+					fDataHour.write(p1DataJsonText)
+					
+				# check also for a day change; if so, then reset stuff
+				if (datetimeNow.isoweekday() != currentDay):
+					data['eHourlyMinList'] = [None] * 24
+					data['eHourlyMaxList'] = [None] * 24
+					data['eHourlyTotalList'] = [None] * 25
+					if (gasPresent):
+						data['gasHourlyTotalList'] = [None] * 25
+					data['eDayMin'] = eNow
+					data['eDayMax'] = eNow
+					currentDay = datetimeNow.isoweekday()
+
 				currentHour = datetimeNow.hour
 				data['eHourlyMinList'][currentHour] = eNow
 				data['eHourlyMaxList'][currentHour] = eNow
 				data['eHourlyTotalList'][currentHour] = eTotal
+				if (gasPresent):
+					data['gasHourlyTotalList'][currentHour] = gasTotal
 
 			data['eDayMin'] = min(data['eDayMin'], eNow)
 			data['eDayMax'] = max(data['eDayMax'], eNow)
+			data['timestamp'] = datetimeNow.strftime("%Y-%m-%d %H:%M:%S")
 
-			if (gasTotal != 0):
+			if (gasPresent):
 				logger.debug("(e_nu, e_dal, e_piek, gas) = (%4.0f, %.0f, %.0f, %.0f)" % (eNow, eTotalOffPeak, eTotalPeak, gasTotal))
 			else:
 				logger.debug("(e_nu, e_dal, e_piek) = (%4.0f, %.0f, %.0f)" % (eNow, eTotalOffPeak, eTotalPeak))
 	
 			# now write the json file
-			with open('/mnt/p1tmpfs/data/data_0.json', 'w') as fData:
+			with open(DATA_NOW_FILENAME, 'w') as fData:
 				p1DataJsonText = json.dumps(data)
 				fData.write(p1DataJsonText)
 		else:
