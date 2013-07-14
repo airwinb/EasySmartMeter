@@ -58,7 +58,7 @@ Herladen nadat je iets aan de configuratie hebt verandert:
 
 PHP installeren:
 > sudo apt-get install php5-cgi php5-mysql php5-fpm php5-cli
-
+> sudo apt-get install php5-gd
 
 
 Python module 'pyserial' installeren:
