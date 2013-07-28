@@ -11,8 +11,8 @@ import sys
 
 
 # Constants
-script_version = "1.3.0"
-script_date = "2013-07-14"
+script_version = "1.4.0"
+script_date = "2013-07-28"
 
 DATA_NOW_FILENAME = '/mnt/p1tmpfs/data/data_0_0.json'
 LOG_FILENAME = '/mnt/p1tmpfs/log/p1.log'
@@ -36,6 +36,7 @@ def main():
 		keepRunning = False
 	
 	signal.signal(signal.SIGINT, signal_handler)
+	signal.signal(signal.SIGTERM, signal_handler)
 
 
 	#Set COM port config
@@ -231,7 +232,7 @@ def main():
 				hourFileName = '/mnt/p1tmpfs/data/data_' + str(currentDay) + '_' + str(currentHour + 1) + '.json'
 				logger.info('Writing hourly results to %s' % hourFileName)
 				with open(hourFileName, 'w') as fDataHour:
-					p1DataJsonText = json.dumps(data)
+					p1DataJsonText = json.dumps(data, sort_keys=True)
 					fDataHour.write(p1DataJsonText)
 					
 				# check also for a day change; if so, then reset stuff
@@ -269,7 +270,7 @@ def main():
 				
 			# now write the json file
 			with open(DATA_NOW_FILENAME, 'w') as fData:
-				p1DataJsonText = json.dumps(data)
+				p1DataJsonText = json.dumps(data, sort_keys=True)
 				fData.write(p1DataJsonText)
 		else:
 			logger.info('Stopping the loop')		
