@@ -2,6 +2,7 @@
 # P1 reader
 # 
 
+import ConfigParser
 import datetime
 import json
 import logging
@@ -9,15 +10,15 @@ import serial
 import signal
 import sys
 
-
 # Constants
 script_version = "1.4.0"
 script_date = "2013-07-28"
 
-DATA_NOW_FILENAME = '/mnt/p1tmpfs/data/data_0_0.json'
-LOG_FILENAME = '/mnt/p1tmpfs/log/p1.log'
-DATA_P1_FILENAME = '/mnt/p1tmpfs/data/p1.json'
-WRITE_PRIMARY_VALUES = True
+DATA_DIR = 'data/'
+LOG_DIR = 'log/'
+DATA_NOW_FILENAME = 'data_0_0.json'
+DATA_P1_FILENAME = 'p1.json'
+LOG_FILENAME = 'p1.log'
 
 
 keepRunning = True
@@ -51,22 +52,34 @@ def main():
 	ser.port="/dev/ttyUSB0"
 	
 	# Initialisation
+	config = ConfigParser.SafeConfigParser()
+	config.read('p1_service.cfg')
+	outputDir = config.get('P1', 'output_dir')
+	writePrimaryValuesToFile = config.getboolean('P1', 'write_primary_values_to_file')
+	dataNowFilePath = outputDir + '/' + DATA_DIR + DATA_NOW_FILENAME
+	dataP1FilePath = outputDir + '/' + DATA_DIR + DATA_P1_FILENAME
 
 	# set up logging
 	logger = logging.getLogger('p1service')
-	hdlr = logging.FileHandler(LOG_FILENAME)
+	logFile = outputDir + '/' + LOG_DIR + LOG_FILENAME
+	hdlr = logging.FileHandler(logFile)
 	formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 	hdlr.setFormatter(formatter)
 	logger.addHandler(hdlr) 
 	logger.setLevel(logging.INFO)
 	#logger.setLevel(logging.DEBUG)
 
+	logger.info("---")
 	logger.info("P1 reader, v%s, %s" % (script_version, script_date))
+	logger.info("Configuration:")
+	logger.info("  Output directory: %s" % outputDir) 
+	logger.info("  Write primary values to file: %s" % writePrimaryValuesToFile)
+	
 	
 	# Try to read from file
 	try:
 		logger.info('Trying to read from file')
-		with open(DATA_NOW_FILENAME, 'r') as fDataIn:
+		with open(dataNowFilePath, 'r') as fDataIn:
 			data = json.load(fDataIn)
 			logger.info('Using data from file dated %s' % data['timestamp'])
 	except IOError:
@@ -195,7 +208,7 @@ def main():
 				i = i + 1
 				
 			# set dataP1 values
-			if WRITE_PRIMARY_VALUES:
+			if writePrimaryValuesToFile:
 				dataP1['timestamp'] = datetimeNow.strftime("%Y-%m-%d %H:%M:%S")
 				dataP1['eNow'] = eNow
 				dataP1['eTotalOffPeak'] = eTotalOffPeak
@@ -262,14 +275,14 @@ def main():
 			else:
 				logger.debug("(e_nu, e_dal, e_piek) = (%4.0f, %.0f, %.0f)" % (eNow, eTotalOffPeak, eTotalPeak))
 	
-			if WRITE_PRIMARY_VALUES:
+			if writePrimaryValuesToFile:
 				# now write the json file with primary values
-				with open(DATA_P1_FILENAME, 'w') as fDataP1:
+				with open(dataP1FilePath, 'w') as fDataP1:
 					dataP1JsonText = json.dumps(dataP1, sort_keys=True)
 					fDataP1.write(dataP1JsonText)
 				
 			# now write the json file
-			with open(DATA_NOW_FILENAME, 'w') as fData:
+			with open(dataNowFilePath, 'w') as fData:
 				p1DataJsonText = json.dumps(data, sort_keys=True)
 				fData.write(p1DataJsonText)
 		else:
