@@ -16,11 +16,13 @@ script_date = "2013-07-14"
 
 DATA_NOW_FILENAME = '/mnt/p1tmpfs/data/data_0_0.json'
 LOG_FILENAME = '/mnt/p1tmpfs/log/p1.log'
-
+DATA_P1_FILENAME = '/mnt/p1tmpfs/data/p1.json'
+WRITE_PRIMARY_VALUES = True
 
 
 keepRunning = True
 data = {}
+dataP1 = {}
 
 
 # Main program
@@ -191,6 +193,15 @@ def main():
 					gasTotal = int(float(linesFromP1[i + 1][1:10]) * 1000)
 				i = i + 1
 				
+			# set dataP1 values
+			if WRITE_PRIMARY_VALUES:
+				dataP1['timestamp'] = datetimeNow.strftime("%Y-%m-%d %H:%M:%S")
+				dataP1['eNow'] = eNow
+				dataP1['eTotalOffPeak'] = eTotalOffPeak
+				dataP1['eTotalPeak'] = eTotalPeak
+				if (gasPresent):
+					dataP1['gasTotal'] = gasTotal
+			
 			# calculate derived values
 			eTotal = eTotalOffPeak + eTotalPeak
 			data['eNow'] = eNow
@@ -250,6 +261,12 @@ def main():
 			else:
 				logger.debug("(e_nu, e_dal, e_piek) = (%4.0f, %.0f, %.0f)" % (eNow, eTotalOffPeak, eTotalPeak))
 	
+			if WRITE_PRIMARY_VALUES:
+				# now write the json file with primary values
+				with open(DATA_P1_FILENAME, 'w') as fDataP1:
+					dataP1JsonText = json.dumps(dataP1, sort_keys=True)
+					fDataP1.write(dataP1JsonText)
+				
 			# now write the json file
 			with open(DATA_NOW_FILENAME, 'w') as fData:
 				p1DataJsonText = json.dumps(data)
