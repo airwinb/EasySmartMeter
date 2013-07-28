@@ -1,3 +1,10 @@
+Upgrade 1.3.0 to 1.4.0
+------------------------------------------------------------------------------
+- Stop p1_service.py
+- Copy new p1_service.cfg and change settings when required
+- Install new 1.4.0 files
+- Start p1_service.py
+
 Upgrade 1.2.0 to 1.3.0
 ------------------------------------------------------------------------------
 - Stop p1_service.py
