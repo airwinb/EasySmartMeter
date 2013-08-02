@@ -113,4 +113,25 @@ Appendix: (Moet nog deels verwerkt worden, en niet alles is nodig/goed!)
   288  sudo chmod 777 /mnt/p1tmpfs
   291  sudo mount -t tmpfs -o size=10M tmpfs /mnt/p1tmpfs
   
+  
+NFS install to connect to QNAP share called RapiMeter
+  973  sudo apt-get install nfs-common portmap
+  974  sudo update-rc.d rpcbind enable
+  986  sudo service rpcbind start
+  976  cd /mnt
+  979  sudo mkdir nas
+  991  sudo chmod 777 nas
+  982  sudo vi /etc/hosts (adding nas with IP to /etc/hosts)
+  983  ping nas
+  987  sudo mount -t nfs nas:/RapiMeter /mnt/nas
 
+  Add following line to /etc/fstab:
+    nas:/RapiMeter	/mnt/nas	nfs	defaults	0	0
+  
+
+Backup using rsync
+ 1000  sudo apt-get install rsync
+       cd /mnt/nas
+ 1001  mkdir -p /mnt/nas/backup/mnt/p1tmpfs
+ 1052  rsync -ra /mnt/p1tmpfs/ /mnt/nas/backup/mnt/p1tmpfs
+    
