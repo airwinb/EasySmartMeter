@@ -98,7 +98,27 @@
         	 */
         	function draw (jsonData)
         	{
-                RGraph.Reset(document.getElementById('cvs0'));
+        		drawTextCanvas('cvs0', jsonData);
+        		
+        		// calculate max based on last 60 minutes data
+        		var maxLastHour = Math.max.apply(Math, jsonData.eLastHourList);
+                var scale = (maxLastHour >= 1000) ? 1000 : 200;
+                var yMax = scale + (maxLastHour - (maxLastHour % scale));
+                var yLabelsCount = yMax / scale;
+                if (yLabelsCount <= 3) {
+                	yLabelsCount *= 2;
+                }
+
+	        	drawGauge('cvs1', jsonData, maxLastHour, yMax, yLabelsCount);
+                
+	        	drawHourGraph('cvs2', jsonData, yMax, yLabelsCount);
+	        	
+	        	drawDayGraphMinMaxAvg('cvs3', jsonData);
+	        	
+        	}
+        	
+        	function drawTextCanvas(canvasName, jsonData) {
+                RGraph.Reset(document.getElementById(canvasName));
         		
                 var textSize = 14;
                 var inbetweenLineSize = 10;
@@ -106,20 +126,20 @@
                 var x2 = 400;
         		var y = 100;
 
-        		new RGraph.Drawing.Text('cvs0', x1, y, 'Meeting:')
+        		new RGraph.Drawing.Text(canvasName, x1, y, 'Meeting:')
         			.Set('valign', 'bottom')
         			.Set('halign', 'left')
         			.Set('size', textSize)
         			.Draw();
         			
-        		new RGraph.Drawing.Text('cvs0', x2, y, jsonData.timestamp)
+        		new RGraph.Drawing.Text(canvasName, x2, y, jsonData.timestamp)
         			.Set('valign', 'bottom')
         			.Set('halign', 'right')
         			.Set('size', textSize)
         			.Draw();
         			
         		y += textSize + inbetweenLineSize;
-        		new RGraph.Drawing.Text('cvs0', x1, y, 'Elektra dag totaal:')
+        		new RGraph.Drawing.Text(canvasName, x1, y, 'Elektra dag totaal:')
         			.Set('valign', 'bottom')
         			.Set('halign', 'left')
         			.Set('size', textSize)
@@ -129,53 +149,46 @@
         		if (jsonData.eHourlyTotalList[0] != null) {
         			dayTotal = (jsonData.eTotal - jsonData.eHourlyTotalList[0]) / 1000;
         		}
-        		new RGraph.Drawing.Text('cvs0', x2, y, dayTotal.toString() + ' kWh')
+        		new RGraph.Drawing.Text(canvasName, x2, y, dayTotal.toString() + ' kWh')
         			.Set('valign', 'bottom')
         			.Set('halign', 'right')
         			.Set('size', textSize)
         			.Draw();
         		
         		y += textSize + inbetweenLineSize;
-        		new RGraph.Drawing.Text('cvs0', x1, y, 'Elektra dag minimum:')
+        		new RGraph.Drawing.Text(canvasName, x1, y, 'Elektra dag minimum:')
         			.Set('valign', 'bottom')
         			.Set('halign', 'left')
         			.Set('size', textSize)
         			.Draw();
 
-        		new RGraph.Drawing.Text('cvs0', x2, y, jsonData.eDayMin.toString() + ' W')
+        		new RGraph.Drawing.Text(canvasName, x2, y, jsonData.eDayMin.toString() + ' W')
         			.Set('valign', 'bottom')
         			.Set('halign', 'right')
         			.Set('size', textSize)
         			.Draw();
         		
         		y += textSize + inbetweenLineSize;
-        		new RGraph.Drawing.Text('cvs0', x1, y, 'Elektra dag maximum:')
+        		new RGraph.Drawing.Text(canvasName, x1, y, 'Elektra dag maximum:')
         			.Set('valign', 'bottom')
         			.Set('halign', 'left')
         			.Set('size', textSize)
         			.Draw();
         			
-        		new RGraph.Drawing.Text('cvs0', x2, y, jsonData.eDayMax.toString() + ' W')
+        		new RGraph.Drawing.Text(canvasName, x2, y, jsonData.eDayMax.toString() + ' W')
         			.Set('valign', 'bottom')
         			.Set('halign', 'right')
         			.Set('size', textSize)
         			.Draw();
-        		
-
-        		var maxLastHour = Math.max.apply(Math, jsonData.eLastHourList);
-                var scale = (maxLastHour >= 1000) ? 1000 : 200;
-                var yMax = scale + (maxLastHour - (maxLastHour % scale));
-                var yLabelsCount = yMax / scale;
-                if (yLabelsCount <= 3) {
-                	yLabelsCount *= 2;
-                }
-        		
+        	}
+        	
+        	function drawGauge(canvasId, jsonData, maxLastHour, yMax, yLabelsCount) {
         		// Update gauge
         		if (maxLastHour != previousMaxLastHour) {
         			previousMaxLastHour = maxLastHour;
         			
-        			RGraph.Reset(document.getElementById('cvs1'));
-        			gauge = new RGraph.Gauge('cvs1', 0, yMax, 0)
+        			RGraph.Reset(document.getElementById(canvasId));
+        			gauge = new RGraph.Gauge(canvasId, 0, yMax, 0)
         				.Set('title.top', 'Energie verbruik')
         				.Set('chart.scale.thousand', '')
         				.Set('chart.tickmarks.big', yLabelsCount)
@@ -187,11 +200,12 @@
                 gauge.Set('title.bottom', text);
                 gauge.value = jsonData.eNow;
                 RGraph.Effects.Gauge.Grow(gauge);
-                
+            }
 
-                
-                // Update for the last hour graph
-                RGraph.Reset(document.getElementById('cvs2'));
+
+            // Update for the last hour graph
+	        function drawHourGraph(canvasId, jsonData, yMax, yLabelsCount) {
+                RGraph.Reset(document.getElementById(canvasId));
                 
                 var labels = ['-60m','-50m','-40m','-30m','-20m','-10m','0']
                 if (hour != 0) {
@@ -201,7 +215,7 @@
                 	labels = [startLabel + ':00', startLabel + ':10', startLabel + ':20', startLabel + ':30', startLabel + ':40', startLabel + ':50', endLabel + ':00'];
                 }
 
-                var line = new RGraph.Line('cvs2', jsonData.eLastHourList)
+                var line = new RGraph.Line(canvasId, jsonData.eLastHourList)
                 	.Set('labels', labels)
                 	.Set('chart.ylabels.count', yLabelsCount)
                 	.Set('chart.numyticks', yLabelsCount)
@@ -217,11 +231,10 @@
                 	.Set('background.grid.autofit.numvlines', 12)
                 	.Set('ymax', yMax)
                 	.Draw();
-                	
-                	
-                // Update for the hourly min/max graph
-                // create the data
-                
+            }
+        	
+            // show the day graph
+            function drawDayGraphMinMaxAvg(canvasId, jsonData) { 
                 var hourlyData = [];
 
                 j = 0;
@@ -236,10 +249,6 @@
 					}
 				}          
 				
-				//if (document.getElementById("cvs3").__object__) {
-				//	RGraph.ObjectRegistry.Clear(document.getElementById("cvs3").__object__);
-				//}
-				
                 scale = (jsonData.eDayMax >= 1000) ? 1000 : 100;
                 yMax = scale + (jsonData.eDayMax - (jsonData.eDayMax % scale));
                 yLabelsCount = yMax / scale;
@@ -247,11 +256,10 @@
                 	yLabelsCount *= 2;
                 }
 
-				
-				RGraph.Reset(document.getElementById('cvs3'));
+				RGraph.Reset(document.getElementById(canvasId));
 	
 				var scatterTitle = 'Minimum, maximum and gemiddelde per uur';
-				var scatter = new RGraph.Scatter('cvs3', RGraph.array_clone(hourlyData))
+				var scatter = new RGraph.Scatter(canvasId, RGraph.array_clone(hourlyData))
 					.Set('chart.title', scatterTitle)
 					.Set('chart.background.grid.autofit.numhlines', yLabelsCount)
 					.Set('chart.background.grid.autofit.numvlines', 24)
@@ -267,15 +275,9 @@
 					.Set('chart.scale.thousand', '')
 					.Set('chart.xaxis', false)
 					.Draw();
-        	}
-        	
-        	function getParameterByName(name) {
-        		name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
-        		var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
-        		results = regex.exec(location.search);
-        		return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
-        	}
-        	
+			}
+
+            
         	function showDay(number) {
         		if (day == number) {
         			// go back to current view        		
