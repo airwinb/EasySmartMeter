@@ -1,33 +1,58 @@
-EasySmartMeter
-==============
-
+SmartMeterEasy
+===
+---
 Note: part of it are still in Dutch. Translation is in progress.
 
 
 Doel
-----
+---
+---
 Het op een makkelijke manier toegankelijke maken van de uitvoer via de P1 poort
 van de energiemeter.
 
-
 Installatie
 -----------
+---
+De software bestaat uit meerdere bestanden: (en om te downloaden druk je op je
+rechter muistoets en selecteer je 'Save Link As ...' of iets dergelijks)
 
-Tijdelijke installatie aanwijzingen staan in install.txt
+Bestanden server deel:
 
-De software bestaat uit drie bestanden: (en om te downloaden druk je op je rechter muistoets en selecteer je 'Save Link As ...' of iets dergelijks)
+* **script/smartmeterEasy.conf** <br />
+Debian locatie: /etc/smartmeterEasy/ <br />
+Dit is de configuratie file. Verander de settings voor jouw omgeving.
+* **script/smartmeterEasy.py** <br />
+Debian locatie: bv. ~/SmartmeterEasy/ <br />
+Dit is het server back-end gedeelte. Het leest de P1 meter en zorgt dat de data in de browser zichtbaar en ververst wordt. Dit bestand hoeft niet aangepast te worden.
+* **script/smartmeterEasy.sh** <br />
+Debian locatie: /etc/init.d/ <br />
+Dit is het start en stop script om smartmeterEasy.py als service te draaien. Aanpassingen zijn nodig in het begin van het bestand.
 
-    p1_service.py; een python script dat altijd moet draaien en zorgt dat de gegevens in een bruikbaar formaat worden weggeschreven
-    data.php; een php file dat ervoor zorgt dat de data in de browser zichtbaar en ververst wordt
-    index.html; een html pagina die het (dag)overzicht geeft
+Wanneer je alle noodzakelijke aanpassingen hebt gedaan, en de bestanden op de goede locatie staan, kun je voor Debian (Wheezy) de volgende commando's geven:
 
-Het bestand p1_service.py kun je plaatsen waar je wilt, maar deze moet wel altijd lopen. De bestanden data.php en index.html moeten 'gehost' worden. Verder heb je waar deze twee bestanden staan ook nog de directory 'javascript/rgraph' nodig met alle rgraph javascript libraries.
+	> cd /etc/init.rd
+	> chmod 755 smartmeterEasy.sh
+	> sudo update-rc.d smartmeterEasy.sh defaults
 
-Het p1_service.py programma maakt gebruik van de volgende locatie voor de data bestanden:
+Het starten van de service zal dan automatisch gaan bij het booten van het systeem. Om handmatig te starten en stoppen:
 
-    /mnt/p1tmpfs/data; hier staan de data bestanden
-    /mnt/p1tmpfs/log; hier staat de file p1.log waarin de log output van het python script staat
+	> sudo service smartmeterEasy.sh start
+	en
+	> sudo service smartmeterEasy.sh stop
+	
+Bestanden hosting deel:
+
+* **data.php** <br />
+Dit is een php file dat ervoor zorgt dat de data in de browser zichtbaar en ververst wordt.
+* **day.css** <br />
+Dit is de style sheet die voor een groot gedeelte het uiterlijk van de html pagina bepaald. Aanpassingen zijn niet nodig, maar indien je dit wenst kun je de 'look' wel veranderen.
+* **index.html** <br />
+Dit is een html pagina die het (dag)overzicht geeft.
+
+Verder heb je waar deze twee bestanden staan ook nog de directory 'javascript/rgraph' nodig met alle rgraph javascript libraries.
+
 
 Issues en release notes
------------------------
-See Issues and the Milestones
+---
+---
+See Issues and Milestones
