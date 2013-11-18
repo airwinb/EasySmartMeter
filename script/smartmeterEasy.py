@@ -1,24 +1,26 @@
+#!/usr/bin/python
+
 #
-# P1 reader
+# SmartmeterEasy
 # 
 
 import ConfigParser
 import datetime
 import json
 import logging
+import os
 import serial
+import shutil
 import signal
 import sys
 
 # Constants
-script_version = "1.4.0"
-script_date = "2013-07-28"
+script_version = "1.5.0"
+script_date = "2013-11-17"
 
-DATA_DIR = 'data/'
-LOG_DIR = 'log/'
 DATA_NOW_FILENAME = 'data_0_0.json'
 DATA_P1_FILENAME = 'p1.json'
-LOG_FILENAME = 'p1.log'
+LOG_FILENAME = 'smartmeterEasy.log'
 
 
 keepRunning = True
@@ -53,28 +55,52 @@ def main():
 	
 	# Initialisation
 	config = ConfigParser.SafeConfigParser()
-	config.read('p1_service.cfg')
-	outputDir = config.get('P1', 'output_dir')
-	writePrimaryValuesToFile = config.getboolean('P1', 'write_primary_values_to_file')
-	dataNowFilePath = outputDir + '/' + DATA_DIR + DATA_NOW_FILENAME
-	dataP1FilePath = outputDir + '/' + DATA_DIR + DATA_P1_FILENAME
+	for loc in os.curdir, os.path.expanduser("~"), "/etc/smartmeterEasy":
+		try: 
+			with open(os.path.join(loc,"smartmeterEasy.conf")) as source:
+				config.readfp(source)
+		except IOError:
+			pass
 
 	# set up logging
-	logger = logging.getLogger('p1service')
-	logFile = outputDir + '/' + LOG_DIR + LOG_FILENAME
+	logDir = config.get('GENERAL', 'log_dir')
+	if not os.path.exists(logDir):
+		os.makedirs(logDir)
+	logger = logging.getLogger('smartmeterEasy')
+	logFile = logDir + '/' + LOG_FILENAME
 	hdlr = logging.FileHandler(logFile)
 	formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 	hdlr.setFormatter(formatter)
 	logger.addHandler(hdlr) 
 	logger.setLevel(logging.INFO)
 	#logger.setLevel(logging.DEBUG)
+	
+	mainDataDir = config.get('GENERAL', 'main_data_dir')
+	backupMainDataDir = config.get('GENERAL', 'backup_main_data_dir')
+	dailyDataDir = config.get('GENERAL', 'daily_data_dir')
+	writePrimaryValuesToFile = config.getboolean('GENERAL', 'write_primary_values_to_file')
 
 	logger.info("---")
-	logger.info("P1 reader, v%s, %s" % (script_version, script_date))
+	logger.info("SmartmeterEasy, v%s, %s" % (script_version, script_date))
 	logger.info("Configuration:")
-	logger.info("  Output directory: %s" % outputDir) 
+	logger.info("  Log directory: %s" % logDir) 
+	logger.info("  Main data directory: %s" % mainDataDir) 
+	logger.info("  Daily data directory: %s" % dailyDataDir) 
+	logger.info("  Backup main data directory: %s" % backupMainDataDir) 
 	logger.info("  Write primary values to file: %s" % writePrimaryValuesToFile)
 	
+	if not os.path.exists(mainDataDir):
+		if os.path.exists(backupMainDataDir):
+			logger.info("Restoring main data dir from %s" % backupMainDataDir)
+			shutil.copytree(backupMainDataDir, mainDataDir)
+		else:
+			logger.info("Creating main data dir %s" % mainDataDir)
+			os.makedirs(mainDataDir)
+	if not os.path.exists(dailyDataDir):
+		os.makedirs(dailyDataDir)
+	dataNowFilePath = mainDataDir + '/' + DATA_NOW_FILENAME
+	dataP1FilePath = mainDataDir + '/' + DATA_P1_FILENAME
+
 	
 	# Try to read from file
 	try:
@@ -242,11 +268,23 @@ def main():
 						data['gasHourlyTotalList'][24] = gasTotal
 				
 				# write the structure to disk
-				hourFileName = '/mnt/p1tmpfs/data/data_' + str(currentDay) + '_' + str(currentHour + 1) + '.json'
+				hourFileName = mainDataDir + '/data_' + str(currentDay) + '_' + str(currentHour + 1) + '.json'
 				logger.info('Writing hourly results to %s' % hourFileName)
 				with open(hourFileName, 'w') as fDataHour:
 					p1DataJsonText = json.dumps(data, sort_keys=True)
 					fDataHour.write(p1DataJsonText)
+					
+				# if the currentHour is 23, it means this is also the daily change
+				if (currentHour == 23):
+					dataDay = data.copy()
+					dataDay.pop("eLastHourList", None)
+					yesterday = datetimeNow - datetime.timedelta(days=1)
+					dailyFileName = dailyDataDir + '/data_' + yesterday.strftime("%Y_%m_%d") + '.json'
+					logger.info('Writing daily results to %s' % dailyFileName)
+					with open(dailyFileName, 'w') as fDataDay:
+						p1DataDayJsonText = json.dumps(dataDay, sort_keys=True)
+						fDataDay.write(p1DataDayJsonText)
+					
 					
 				# check also for a day change; if so, then reset stuff
 				if (datetimeNow.isoweekday() != currentDay):
@@ -288,7 +326,7 @@ def main():
 		else:
 			logger.info('Stopping the loop')		
 	
-	logger.info('P1 reader stopped successfully. Have a nice day!')
+	logger.info('SmartmeterEasy stopped successfully. Have a nice day!')
 	
 	
 if __name__ == '__main__':
