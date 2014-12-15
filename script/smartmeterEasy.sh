@@ -26,13 +26,13 @@ PIDFILE=/home/erwin/SmartMeterEasy/script/$DAEMON_NAME.pid
  
 do_start () {
 	log_daemon_msg "Starting system $DAEMON_NAME daemon"
-	start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --startas $DAEMON
+	start-stop-daemon --start --background --pidfile ${PIDFILE} --make-pidfile --user $DAEMON_USER --startas $DAEMON
 	log_end_msg $?
 }
 
 do_stop () {
 	log_daemon_msg "Stopping system $DAEMON_NAME daemon"
-	start-stop-daemon --stop --pidfile $PIDFILE --retry 10
+	start-stop-daemon --stop --pidfile ${PIDFILE} --retry 10
 	log_end_msg $?
 }
  
@@ -53,7 +53,7 @@ case "$1" in
 		;;
 	
 	*)
-		echo "Usage: /etc/init.d/$DEAMON_NAME {start|stop|restart|status}"
+		echo "Usage: /etc/init.d/$DAEMON_NAME {start|stop|restart|status}"
 		exit 1
 		;;
  
