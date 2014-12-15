@@ -26,7 +26,7 @@ PIDFILE=/home/erwin/SmartMeterEasy/script/$DAEMON_NAME.pid
  
 do_start () {
 	log_daemon_msg "Starting system $DAEMON_NAME daemon"
-	start-stop-daemon --start --background --pidfile ${PIDFILE} --make-pidfile --user $DAEMON_USER --startas $DAEMON
+	start-stop-daemon --start --background --pidfile ${PIDFILE} --make-pidfile --chuid $DAEMON_USER --startas $DAEMON
 	log_end_msg $?
 }
 
