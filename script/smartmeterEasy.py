@@ -16,11 +16,12 @@ import sys
 import time
 
 # Constants
-script_version = "1.6.0"
-script_date = "2014-01-24"
+script_version = "1.6.1"
+script_date = "2014-12-15"
 
 DATA_NOW_FILENAME = 'data_0_0.json'
 DATA_P1_FILENAME = 'p1.json'
+DATA_P1__RAW_FILENAME = 'p1_raw.txt'
 LOG_FILENAME = 'smartmeterEasy.log'
 
 MAX_LINES_NEEDED_FOR_ALIGNMENT = 60
@@ -28,24 +29,23 @@ MAX_ALIGNMENT_ATTEMPTS = 10
 ALIGNMENT_LINE = "!"
 SLEEP_BETWEEN_ALIGNMENT_ATTEMPTS = 1.5
 
-keepRunning = True
+keep_running = True
 data = {}
-dataP1 = {}
+data_p1 = {}
 
 
 # Main program
 def main():
-    global keepRunning, data
+    global keep_running, data
 
     def signal_handler(signal, frame):
-        global keepRunning
+        global keep_running
         logger.info('Signal received: %s' % signal)
         logger.info('Setting keepRunning to False')
-        keepRunning = False
+        keep_running = False
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-
 
     #Set COM port config
     ser = serial.Serial()
@@ -68,55 +68,55 @@ def main():
             pass
 
     # set up logging
-    logDir = config.get('GENERAL', 'log_dir')
-    if not os.path.exists(logDir):
-        os.makedirs(logDir)
+    log_dir = config.get('GENERAL', 'log_dir')
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
     logger = logging.getLogger('smartmeterEasy')
-    logFile = logDir + '/' + LOG_FILENAME
-    hdlr = logging.FileHandler(logFile)
+    log_file = log_dir + '/' + LOG_FILENAME
+    log_handle = logging.FileHandler(log_file)
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-    hdlr.setFormatter(formatter)
-    logger.addHandler(hdlr)
+    log_handle.setFormatter(formatter)
+    logger.addHandler(log_handle)
     logger.setLevel(logging.INFO)
     #logger.setLevel(logging.DEBUG)
 
-    mainDataDir = config.get('GENERAL', 'main_data_dir')
-    backupMainDataDir = config.get('GENERAL', 'backup_main_data_dir')
-    dailyDataDir = config.get('GENERAL', 'daily_data_dir')
-    writePrimaryValuesToFile = config.getboolean('GENERAL', 'write_primary_values_to_file')
+    main_data_dir = config.get('GENERAL', 'main_data_dir')
+    backup_main_data_dir = config.get('GENERAL', 'backup_main_data_dir')
+    daily_data_dir = config.get('GENERAL', 'daily_data_dir')
+    write_primary_values_to_file = config.getboolean('GENERAL', 'write_primary_values_to_file')
 
     logger.info("---")
     logger.info("SmartmeterEasy, v%s, %s" % (script_version, script_date))
     logger.info("Configuration:")
-    logger.info("  Log directory: %s" % logDir)
-    logger.info("  Main data directory: %s" % mainDataDir)
-    logger.info("  Daily data directory: %s" % dailyDataDir)
-    logger.info("  Backup main data directory: %s" % backupMainDataDir)
-    logger.info("  Write primary values to file: %s" % writePrimaryValuesToFile)
+    logger.info("  Log directory: %s" % log_dir)
+    logger.info("  Main data directory: %s" % main_data_dir)
+    logger.info("  Daily data directory: %s" % daily_data_dir)
+    logger.info("  Backup main data directory: %s" % backup_main_data_dir)
+    logger.info("  Write primary values to file: %s" % write_primary_values_to_file)
 
-    if not os.path.exists(mainDataDir):
-        if os.path.exists(backupMainDataDir):
-            logger.info("Restoring main data dir from %s" % backupMainDataDir)
-            shutil.copytree(backupMainDataDir, mainDataDir)
+    if not os.path.exists(main_data_dir):
+        if os.path.exists(backup_main_data_dir):
+            logger.info("Restoring main data dir from %s" % backup_main_data_dir)
+            shutil.copytree(backup_main_data_dir, main_data_dir)
         else:
-            logger.info("Creating main data dir %s" % mainDataDir)
-            os.makedirs(mainDataDir)
-    if not os.path.exists(dailyDataDir):
-        os.makedirs(dailyDataDir)
-    dataNowFilePath = mainDataDir + '/' + DATA_NOW_FILENAME
-    dataP1FilePath = mainDataDir + '/' + DATA_P1_FILENAME
-
+            logger.info("Creating main data dir %s" % main_data_dir)
+            os.makedirs(main_data_dir)
+    if not os.path.exists(daily_data_dir):
+        os.makedirs(daily_data_dir)
+    data_now_file_path = main_data_dir + '/' + DATA_NOW_FILENAME
+    data_p1_file_path = main_data_dir + '/' + DATA_P1_FILENAME
+    data_p1_raw_file_path = main_data_dir + '/' + DATA_P1__RAW_FILENAME
 
     # Try to read from file
     try:
         logger.info('Trying to read from file')
-        with open(dataNowFilePath, 'r') as fDataIn:
+        with open(data_now_file_path, 'r') as fDataIn:
             data = json.load(fDataIn)
             logger.info('Using data from file dated %s' % data['timestamp'])
     except IOError:
         logger.warning('No previous data file found. Creating new and empty data set.')
 
-    if (len(data) == 0):
+    if len(data) == 0:
         data['timestamp'] = None
         data['eNow'] = None
         data['eDayMin'] = sys.maxint
@@ -130,15 +130,15 @@ def main():
         data['eLastHourList'] = [None] * 360
         # Note: gas will be created if needed
 
-        datetimeNow = datetime.datetime.now()
-        currentDay = datetimeNow.isoweekday()
-        currentHour = datetimeNow.hour
-        data['eHourlyMinList'][currentHour] = sys.maxint
-        data['eHourlyMaxList'][currentHour] = 0
+        datetime_now = datetime.datetime.now()
+        current_day = datetime_now.isoweekday()
+        current_hour = datetime_now.hour
+        data['eHourlyMinList'][current_hour] = sys.maxint
+        data['eHourlyMaxList'][current_hour] = 0
     else:
-        datetimeFromFile = datetime.datetime.strptime(data['timestamp'], '%Y-%m-%d %H:%M:%S')
-        currentDay = datetimeFromFile.isoweekday()
-        currentHour = datetimeFromFile.hour
+        datetime_from_file = datetime.datetime.strptime(data['timestamp'], '%Y-%m-%d %H:%M:%S')
+        current_day = datetime_from_file.isoweekday()
+        current_hour = datetime_from_file.hour
         if 'eHourlyTotalList' in data:
             logger.info('eHourlyTotalList already exists')
         else:
@@ -150,6 +150,7 @@ def main():
         logger.info("Opening COM port %s" % ser.name)
         ser.open()
     except:
+        logger.exception("Error while opening %s. Program aborted." % ser.name)
         sys.exit("Error while opening %s. Program aborted." % ser.name)
 
     # do first loop to make sure we are aligned
@@ -157,30 +158,30 @@ def main():
     # open and close the COM port a few times
     logger.info('Reading COM port to align data (should take less then 10 seconds) ...')
     aligned = False
-    aLine = ''
-    gasPresent = False
+    a_line = ''
+    gas_present = False
     i = 0
     j = 1
-    while not aligned and i < MAX_LINES_NEEDED_FOR_ALIGNMENT and j <= MAX_ALIGNMENT_ATTEMPTS and keepRunning:
-        lineRaw = ''
+    while not aligned and i < MAX_LINES_NEEDED_FOR_ALIGNMENT and j <= MAX_ALIGNMENT_ATTEMPTS and keep_running:
+        line_raw = ''
         if i == 0:
             logger.info("Starting alignment attempt %d ..." % j)
         try:
-            lineRaw = ser.readline()
+            line_raw = ser.readline()
             i += 1
         except:
-            if keepRunning:
+            if keep_running:
                 logger.error("Unable to read from COM port %s. Program aborted." % ser.name)
             else:
                 logger.info('Reading from COM port has been cancelled')
 
-        if keepRunning:
-            aLine = str(lineRaw).strip()
-            logger.info('Output from COM port: %s' % aLine)
-            if aLine == ALIGNMENT_LINE:
+        if keep_running:
+            a_line = str(line_raw).strip()
+            logger.info('Output from COM port: %s' % a_line)
+            if a_line == ALIGNMENT_LINE:
                 aligned = True
-            elif aLine[0:10] == "0-1:24.3.0":
-                gasPresent = True
+            elif a_line[0:10] == "0-1:24.3.0":
+                gas_present = True
             if i >= MAX_LINES_NEEDED_FOR_ALIGNMENT:
                 logger.warning("Alignment attempt %d has failed" % j)
                 try:
@@ -197,6 +198,7 @@ def main():
                         logger.info("Opening COM port %s" % ser.name)
                         ser.open()
                     except:
+                        logger.exception("Error while opening %s. Program aborted." % ser.name)
                         sys.exit("Error while opening %s. Program aborted." % ser.name)
                 else:
                     logger.error("Unable to align data from smartmeter after %d attempts. Aborting program." % MAX_ALIGNMENT_ATTEMPTS)
@@ -205,25 +207,25 @@ def main():
     if aligned:
         logger.info("Alignment done!")
 
-    if gasPresent == None and keepRunning:
+    if gas_present is None and keep_running:
         # do an additional loop to check for gas
         logger.info('Checking for gas (should take about 10 seconds) ...')
-        gasPresent = False
-        while (aLine != ALIGNMENT_LINE):
-            lineRaw = ''
+        gas_present = False
+        while a_line != ALIGNMENT_LINE:
+            line_raw = ''
             try:
-                lineRaw = ser.readline()
+                line_raw = ser.readline()
             except:
-                if keepRunning:
+                if keep_running:
                     logger.error("Unable to read from COM port %s. Program aborted." % ser.name)
                 else:
                     logger.info('Reading from COM port has been cancelled')
-            aLine = str(lineRaw).strip()
-            logger.info('Output from COM port: %s' % aLine)
-            if aLine[0:10] == "0-1:24.3.0":
-                gasPresent = True
+            a_line = str(line_raw).strip()
+            logger.info('Output from COM port: %s' % a_line)
+            if a_line[0:10] == "0-1:24.3.0":
+                gas_present = True
 
-    if (gasPresent == True):
+    if gas_present:
         logger.info('Gas is present')
         if not 'gasHourlyTotalList' in data:
             data['gasHourlyTotalList'] = [None] * 25
@@ -231,136 +233,136 @@ def main():
         logger.info('Gas is not present')
 
     logger.info("Starting regular readings ...")
-    while keepRunning:
-        i = 0
-        linesFromP1 = []
-        aLine = ''
-        gasTotal = 0
+    while keep_running:
+        lines_from_p1 = []
+        a_line = ''
+        gas_total = 0
 
         # now read all data from one session
-        if keepRunning:
-            while aLine != "!":
-                lineRaw = ''
+        if keep_running:
+            while a_line != "!":
+                line_raw = ''
                 try:
-                    lineRaw = ser.readline()
+                    line_raw = ser.readline()
                 except:
-                    if keepRunning:
+                    if keep_running:
                         logger.error("Unable to read from COM port %s. Program aborted." % ser.name)
                     else:
                         logger.info('Reading from COM port has been cancelled')
-                aLine = str(lineRaw).strip()
-                linesFromP1.append(aLine)
+                a_line = str(line_raw).strip()
+                lines_from_p1.append(a_line)
 
-        if keepRunning:
-            datetimeNow = datetime.datetime.now()
+        if keep_running:
+            datetime_now = datetime.datetime.now()
             i = 0
-            while i < len(linesFromP1):
-                if linesFromP1[i][0:9] == "1-0:1.8.1":
-                    eTotalOffPeak = int(float(linesFromP1[i][10:19]) * 1000)
-                elif linesFromP1[i][0:9] == "1-0:1.8.2":
-                    eTotalPeak = int(float(linesFromP1[i][10:19]) * 1000)
-                elif linesFromP1[i][0:9] == "1-0:1.7.0":
-                    eNow = int(float(linesFromP1[i][10:17]) * 1000)
-                elif linesFromP1[i][0:10] == "0-1:24.3.0":
-                    gasTotal = int(float(linesFromP1[i + 1][1:10]) * 1000)
-                i = i + 1
+            while i < len(lines_from_p1):
+                if lines_from_p1[i][0:9] == "1-0:1.8.1":
+                    e_total_offpeak = int(float(lines_from_p1[i][10:19]) * 1000)
+                elif lines_from_p1[i][0:9] == "1-0:1.8.2":
+                    e_total_peak = int(float(lines_from_p1[i][10:19]) * 1000)
+                elif lines_from_p1[i][0:9] == "1-0:1.7.0":
+                    e_now = int(float(lines_from_p1[i][10:17]) * 1000)
+                elif lines_from_p1[i][0:10] == "0-1:24.3.0":
+                    gas_total = int(float(lines_from_p1[i + 1][1:10]) * 1000)
+                i += 1
 
             # set dataP1 values
-            if writePrimaryValuesToFile:
-                dataP1['timestamp'] = datetimeNow.strftime("%Y-%m-%d %H:%M:%S")
-                dataP1['eNow'] = eNow
-                dataP1['eTotalOffPeak'] = eTotalOffPeak
-                dataP1['eTotalPeak'] = eTotalPeak
-                if (gasPresent):
-                    dataP1['gasTotal'] = gasTotal
+            if write_primary_values_to_file:
+                data_p1['timestamp'] = datetime_now.strftime("%Y-%m-%d %H:%M:%S")
+                data_p1['eNow'] = e_now
+                data_p1['eTotalOffPeak'] = e_total_offpeak
+                data_p1['eTotalPeak'] = e_total_peak
+                if gas_present:
+                    data_p1['gasTotal'] = gas_total
 
             # calculate derived values
-            eTotal = eTotalOffPeak + eTotalPeak
-            data['eNow'] = eNow
-            data['eTotal'] = eTotal
-            data['eTotalOffPeak'] = eTotalOffPeak
-            data['eTotalPeak'] = eTotalPeak
-            if (gasPresent):
-                data['gasTotal'] = gasTotal
+            e_total = e_total_offpeak + e_total_peak
+            data['eNow'] = e_now
+            data['eTotal'] = e_total
+            data['eTotalOffPeak'] = e_total_offpeak
+            data['eTotalPeak'] = e_total_peak
+            if gas_present:
+                data['gasTotal'] = gas_total
             data['eLastHourList'].pop(0)
-            data['eLastHourList'].append(eNow)
+            data['eLastHourList'].append(e_now)
 
             # check hour change
-            if (datetimeNow.hour == currentHour):
-                if (data['eHourlyMinList'][currentHour] is None):
-                    data['eHourlyMinList'][currentHour] = eNow
+            if datetime_now.hour == current_hour:
+                if data['eHourlyMinList'][current_hour] is None:
+                    data['eHourlyMinList'][current_hour] = e_now
                 else:
-                    data['eHourlyMinList'][currentHour] = min(data['eHourlyMinList'][currentHour], eNow)
-                data['eHourlyMaxList'][currentHour] = max(data['eHourlyMaxList'][currentHour], eNow)
+                    data['eHourlyMinList'][current_hour] = min(data['eHourlyMinList'][current_hour], e_now)
+                data['eHourlyMaxList'][current_hour] = max(data['eHourlyMaxList'][current_hour], e_now)
             else:
-                if (datetimeNow.isoweekday() != currentDay):
+                if datetime_now.isoweekday() != current_day:
                     # set the 25th entry in the eHourlyTotalList
-                    data['eHourlyTotalList'][24] = eTotal
-                    if (gasPresent):
-                        data['gasHourlyTotalList'][24] = gasTotal
+                    data['eHourlyTotalList'][24] = e_total
+                    if gas_present:
+                        data['gasHourlyTotalList'][24] = gas_total
 
                 # write the structure to disk
-                hourFileName = mainDataDir + '/data_' + str(currentDay) + '_' + str(currentHour + 1) + '.json'
-                logger.info('Writing hourly results to %s' % hourFileName)
-                with open(hourFileName, 'w') as fDataHour:
-                    p1DataJsonText = json.dumps(data, sort_keys=True)
-                    fDataHour.write(p1DataJsonText)
+                hour_file_name = main_data_dir + '/data_' + str(current_day) + '_' + str(current_hour + 1) + '.json'
+                logger.info('Writing hourly results to %s' % hour_file_name)
+                with open(hour_file_name, 'w') as fdata_hour:
+                    p1_data_json_text = json.dumps(data, sort_keys=True)
+                    fdata_hour.write(p1_data_json_text)
 
                 # if the currentHour is 23, it means this is also the daily change
-                if (currentHour == 23):
-                    dataDay = data.copy()
-                    dataDay.pop("eLastHourList", None)
-                    yesterday = datetimeNow - datetime.timedelta(days=1)
-                    dailyFileName = dailyDataDir + '/data_' + yesterday.strftime("%Y_%m_%d") + '.json'
-                    logger.info('Writing daily results to %s' % dailyFileName)
-                    with open(dailyFileName, 'w') as fDataDay:
-                        p1DataDayJsonText = json.dumps(dataDay, sort_keys=True)
-                        fDataDay.write(p1DataDayJsonText)
-
+                if current_hour == 23:
+                    data_day = data.copy()
+                    data_day.pop("eLastHourList", None)
+                    yesterday = datetime_now - datetime.timedelta(days=1)
+                    daily_file_name = daily_data_dir + '/data_' + yesterday.strftime("%Y_%m_%d") + '.json'
+                    logger.info('Writing daily results to %s' % daily_file_name)
+                    with open(daily_file_name, 'w') as fdata_day:
+                        p1_data_day_json_text = json.dumps(data_day, sort_keys=True)
+                        fdata_day.write(p1_data_day_json_text)
 
                 # check also for a day change; if so, then reset stuff
-                if (datetimeNow.isoweekday() != currentDay):
+                if datetime_now.isoweekday() != current_day:
                     data['eHourlyMinList'] = [None] * 24
                     data['eHourlyMaxList'] = [None] * 24
                     data['eHourlyTotalList'] = [None] * 25
-                    if (gasPresent):
+                    if gas_present:
                         data['gasHourlyTotalList'] = [None] * 25
-                    data['eDayMin'] = eNow
-                    data['eDayMax'] = eNow
-                    currentDay = datetimeNow.isoweekday()
+                    data['eDayMin'] = e_now
+                    data['eDayMax'] = e_now
+                    current_day = datetime_now.isoweekday()
 
-                currentHour = datetimeNow.hour
-                data['eHourlyMinList'][currentHour] = eNow
-                data['eHourlyMaxList'][currentHour] = eNow
-                data['eHourlyTotalList'][currentHour] = eTotal
-                if (gasPresent):
-                    data['gasHourlyTotalList'][currentHour] = gasTotal
+                current_hour = datetime_now.hour
+                data['eHourlyMinList'][current_hour] = e_now
+                data['eHourlyMaxList'][current_hour] = e_now
+                data['eHourlyTotalList'][current_hour] = e_total
+                if gas_present:
+                    data['gasHourlyTotalList'][current_hour] = gas_total
 
-            data['eDayMin'] = min(data['eDayMin'], eNow)
-            data['eDayMax'] = max(data['eDayMax'], eNow)
-            data['timestamp'] = datetimeNow.strftime("%Y-%m-%d %H:%M:%S")
+            data['eDayMin'] = min(data['eDayMin'], e_now)
+            data['eDayMax'] = max(data['eDayMax'], e_now)
+            data['timestamp'] = datetime_now.strftime("%Y-%m-%d %H:%M:%S")
 
-            if (gasPresent):
+            if gas_present:
                 logger.debug("(e_nu, e_dal, e_piek, gas) = (%4.0f, %.0f, %.0f, %.0f)" % (
-                    eNow, eTotalOffPeak, eTotalPeak, gasTotal))
+                    e_now, e_total_offpeak, e_total_peak, gas_total))
             else:
-                logger.debug("(e_nu, e_dal, e_piek) = (%4.0f, %.0f, %.0f)" % (eNow, eTotalOffPeak, eTotalPeak))
+                logger.debug("(e_nu, e_dal, e_piek) = (%4.0f, %.0f, %.0f)" % (e_now, e_total_offpeak, e_total_peak))
 
-            if writePrimaryValuesToFile:
+            if write_primary_values_to_file:
                 # now write the json file with primary values
-                with open(dataP1FilePath, 'w') as fDataP1:
-                    dataP1JsonText = json.dumps(dataP1, sort_keys=True)
-                    fDataP1.write(dataP1JsonText)
+                with open(data_p1_file_path, 'w') as file_handle_data_p1:
+                    data_p1_json_text = json.dumps(data_p1, sort_keys=True)
+                    file_handle_data_p1.write(data_p1_json_text)
+                with open(data_p1_raw_file_path, 'w') as file_handle_data_p1_raw:
+                    for line in lines_from_p1:
+                        file_handle_data_p1_raw.write("%s\n" % line)
 
             # now write the json file
-            with open(dataNowFilePath, 'w') as fData:
-                p1DataJsonText = json.dumps(data, sort_keys=True)
-                fData.write(p1DataJsonText)
+            with open(data_now_file_path, 'w') as file_handle_data:
+                p1_data_json_text = json.dumps(data, sort_keys=True)
+                file_handle_data.write(p1_data_json_text)
         else:
             logger.info('Stopping the loop')
 
     logger.info('SmartmeterEasy stopped successfully. Have a nice day!')
-
 
 if __name__ == '__main__':
     main()
