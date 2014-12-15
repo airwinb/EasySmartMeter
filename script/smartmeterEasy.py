@@ -16,11 +16,12 @@ import sys
 import time
 
 # Constants
-script_version = "1.6.0"
-script_date = "2014-01-24"
+script_version = "1.6.1"
+script_date = "2014-12-15"
 
 DATA_NOW_FILENAME = 'data_0_0.json'
 DATA_P1_FILENAME = 'p1.json'
+DATA_P1__RAW_FILENAME = 'p1_raw.txt'
 LOG_FILENAME = 'smartmeterEasy.log'
 
 MAX_LINES_NEEDED_FOR_ALIGNMENT = 60
@@ -104,6 +105,7 @@ def main():
         os.makedirs(daily_data_dir)
     data_now_file_path = main_data_dir + '/' + DATA_NOW_FILENAME
     data_p1_file_path = main_data_dir + '/' + DATA_P1_FILENAME
+    data_p1_raw_file_path = main_data_dir + '/' + DATA_P1__RAW_FILENAME
 
     # Try to read from file
     try:
@@ -148,6 +150,7 @@ def main():
         logger.info("Opening COM port %s" % ser.name)
         ser.open()
     except:
+        logger.exception("Error while opening %s. Program aborted." % ser.name)
         sys.exit("Error while opening %s. Program aborted." % ser.name)
 
     # do first loop to make sure we are aligned
@@ -195,6 +198,7 @@ def main():
                         logger.info("Opening COM port %s" % ser.name)
                         ser.open()
                     except:
+                        logger.exception("Error while opening %s. Program aborted." % ser.name)
                         sys.exit("Error while opening %s. Program aborted." % ser.name)
                 else:
                     logger.error("Unable to align data from smartmeter after %d attempts. Aborting program." % MAX_ALIGNMENT_ATTEMPTS)
@@ -221,7 +225,7 @@ def main():
             if a_line[0:10] == "0-1:24.3.0":
                 gas_present = True
 
-    if gas_present == True:
+    if gas_present:
         logger.info('Gas is present')
         if not 'gasHourlyTotalList' in data:
             data['gasHourlyTotalList'] = [None] * 25
@@ -344,19 +348,21 @@ def main():
 
             if write_primary_values_to_file:
                 # now write the json file with primary values
-                with open(data_p1_file_path, 'w') as fdata_p1:
+                with open(data_p1_file_path, 'w') as file_handle_data_p1:
                     data_p1_json_text = json.dumps(data_p1, sort_keys=True)
-                    fdata_p1.write(data_p1_json_text)
+                    file_handle_data_p1.write(data_p1_json_text)
+                with open(data_p1_raw_file_path, 'w') as file_handle_data_p1_raw:
+                    for line in lines_from_p1:
+                        file_handle_data_p1_raw.write("%s\n" % line)
 
             # now write the json file
-            with open(data_now_file_path, 'w') as fData:
+            with open(data_now_file_path, 'w') as file_handle_data:
                 p1_data_json_text = json.dumps(data, sort_keys=True)
-                fData.write(p1_data_json_text)
+                file_handle_data.write(p1_data_json_text)
         else:
             logger.info('Stopping the loop')
 
     logger.info('SmartmeterEasy stopped successfully. Have a nice day!')
-
 
 if __name__ == '__main__':
     main()
